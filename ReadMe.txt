@@ -11,12 +11,3 @@ Common used libraries:
 #define F_CPU 8000000UL
 
 
-
-1. 7seg
-2. 7seg Mux + buttons + brightness
-3. PWM + CTC
-4. Inertion
-5. Freq meater
-6. uSonic meater
-7. Servo
-8. USART
