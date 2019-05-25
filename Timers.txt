@@ -1,0 +1,111 @@
+Zerowanie prescalera:
+	GTCCR = _BV(PSRSYNC)
+
+Wpływ na piny - COM1/COM2 w rejestrze TCCRnA
+
+TCNTn - rejestr licznika/timera
+TCCRnx - rejestr kontrolny
+
+
+Tryb normalny (overflow):
+
+	TCCR0B |= _BV(CS01)|_BV(CS00);  //preskaler
+	TIMSK0 |= _BV(TOIE0); //przerwanie z przepełnienia
+
+	Wektor: TIMER0_OVF_vect
+
+Tryb compare: (do delay!)
+	dodatkowo:
+	TIMSK0 |= _BV(OCIE0A); //przerwanie z porównania z OCR0A
+	OCR0A = n; //wartosc na ktorej przerwanie
+	
+	Wektor: TIMER0_COMPA_vect
+	
+Tryb CTC:
+	bit WGM
+	Wekror: TIMERx_COMPA_vect / TIMER1_CAPT_vect w zależności od używanego rejestru (OCRxA /ICR1)
+
+
+	
+Tryb PWM:
+	kontrola wypełnienia i częstotliwości (zazwyczaj najwyzsza mozliwa)
+	
+	1. Fast PWM:
+		liczy tylko w górę
+		liczy do max (8-10bitów) lub do OCRxA/ICPx (2-16 bitów)
+		f = F_CPU/(2*N*(1+max licznika))
+	
+	2. Phase Correct PWM
+		liczy w górę a później w dół
+		rozdzielczosc analogicznie
+		max f 2x nizsza	
+		
+		
+	Funkcje dla T1
+
+	void timerInitN(){ //migajace diody w zwyklym trybie
+	//TIMSK1 |= _BV(TOIE1) //przerwanie z przepełnienia
+	//TIMSK1 |= _BV(OCIE1A) //przerwanie z porownania z OCR1A
+	TCCR1A = _BV(COM1A0) | _BV(COM1B0); //Sterowanie wyjściami - OC1A (PB1) i OC1B (PB2) - toogle /można off/on - timer przejmuje te piny
+	OCR1A = 10000;	//rej do porównania
+	OCR1B = 30000; // zmiana stanu na porównianie
+	TCCR1B |= _BV(CS11)|_BV(CS10); //ustawienie T1 /256 i  start
+	TCCR1C |= _BV(FOC1A); // generuje od razu zdarzenie OC1A, żeby zmienic faze, swieca na przemian
+
+}
+
+void timerInitCTC(){ //sterowanie led CTC
+	//TIMSK1 |= _BV(OCIE1A) //przerwanie z porownania z OCR1A - do przerwania
+	TCCR1A = _BV(COM1A0) | _BV(COM1B0); //toogle on compare - sterowanie wyjściami
+	TCCR1C = _BV(FOC1B); // od razu zdarzenie OC1A
+	OCR1A = 10000;	//wartosc do ktorej liczy licznik
+	OCR1B = 5000; // przesunienie fazy
+	TCCR1B |= _BV(CS12); //preskaler
+	TCCR1B |= _BV(WGM12); //tryb ctc
+
+}
+
+void timerInitPWM(){ //sterowanie jasnoscia (fast PWM 8Bit)
+	TCCR1A |= _BV(COM1A1)|_BV(COM1B1); //clear on compare
+	OCR1A = 230; //(wypełnienie) - 250/255*100
+	OCR1B = 25; //wypełnienie 50% (256/128)
+	TCCR1A |= _BV(WGM10); //do wyboru trybu PWM reszta WGM w TCCR1B
+	TCCR1B |= _BV(WGM12) | _BV(CS10)|; //wybór PWM i preskalera 1 - brak
+
+}
+	
+Do delay:
+
+ISR(TIMER0_COMPA_vect){
+	if (++ms10Cnt>99){ //odliczanie 10ms
+			ms10Cnt = 0;
+			if (++s1Cnt>59)//odliczanie 1s
+				s1Cnt = 0;
+	}
+}
+
+
+void timer0Init(){
+	TCCR0A |= _BV(WGM01); //ctc
+	TCCR0B |= _BV(CS02)|_BV(CS00); //1024
+	OCR0A = 78;
+	TIMSK0 = _BV(OCIE0A);
+}
+
+np. do zapalania na zmiane
+if (sec1 != s1Cnt){//!!!
+		if (s1Cnt%2 == 0 ){
+			LCD_GoTo(0,1);
+			LCD_WriteData('A');
+		}
+		if (s1Cnt%2 == 1 ){
+			LCD_GoTo(0,1);
+			LCD_WriteData('B');
+		}
+		sec1 = s1Cnt;//!!!
+		}
+
+				
+				
+				
+				
